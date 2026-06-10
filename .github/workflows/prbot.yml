@@ -1,21 +1,22 @@
 name: Pull Request
 
 on:
-  pull_request_target:
+  pull_request:
     types: [opened, synchronize, reopened]
 
 permissions:
-  contents: write # allow pushing code
-  pull-requests: write # allow commenting on PRs
+  contents: write # allow pushing lint fixes to same-repo PR branches
 
 jobs:
   lint:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout PR head
         uses: actions/checkout@v4
         with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
           persist-credentials: true
 
@@ -31,36 +32,26 @@ jobs:
       - name: Run lint
         run: npm run lint
 
-      - name: Commit & push fixes
-        id: git_push
+      - name: Push lint fixes
+        if: github.event.pull_request.head.repo.full_name == github.repository
         run: |
+          if git diff --quiet; then
+            echo "No lint fixes needed."
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if ! git diff --quiet; then
-            git add .
-            git commit -m "chore: apply lint fixes"
-            if git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" \
-                    HEAD:${{ github.head_ref }}; then
-              echo "push_succeeded=true" >> $GITHUB_OUTPUT
-            else
-              echo "push_succeeded=false" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "push_succeeded=true" >> $GITHUB_OUTPUT
+          git add .
+          git commit -m "chore: apply lint fixes"
+          git push origin "HEAD:${{ github.head_ref }}"
+
+      - name: Check lint result (fork PRs)
+        if: github.event.pull_request.head.repo.full_name != github.repository
+        run: |
+          if git diff --quiet; then
+            echo "No lint fixes needed."
+            exit 0
           fi
-
-      - name: Comment on PR if push failed
-        if: steps.git_push.outputs.push_succeeded == 'false'
-        uses: peter-evans/create-or-update-comment@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          issue-number: ${{ github.event.pull_request.number }}
-          body: |
-            @${{ github.event.pull_request.user.login }}
-            I automatically applied lint fixes but couldn’t push to your branch—could you please run:
-
-            ```bash
-            npm run lint
-            ```
-
-            and push the results? Thanks!
+          git diff --stat
+          echo "::error::Lint produced changes. Please run 'npm run lint' locally and push the result."
+          exit 1
