@@ -32,12 +32,14 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: actions-cool/issues-helper@v3
-        with:
-          actions: close-issue, create-comment
-          token: ${{ secrets.GITHUB_TOKEN }}
-          body: |
-            Hello @${{ github.event.issue.user.login }}. This issue is marked as `invalid` and closed. Please make sure you are reporting an issue and following the issue template.
+      - name: Close issue with comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue close "${{ github.event.issue.number }}" \
+            --repo "${{ github.repository }}" \
+            --reason "not planned" \
+            --comment "Hello @${{ github.event.issue.user.login }}. This issue is marked as \`invalid\` and closed. Please make sure you are reporting an issue and following the issue template."
   issue-duplicate:
     name: close duplicate issue
     if: github.event.label.name == 'duplicate'
@@ -46,9 +48,11 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: actions-cool/issues-helper@v3
-        with:
-          actions: close-issue, create-comment
-          token: ${{ secrets.GITHUB_TOKEN }}
-          body: |
-            Hello @${{ github.event.issue.user.login }}. This issue is marked as `duplicate` and closed. Please make sure you have searched to see if an issue already exists for the bug you encountered.
+      - name: Close issue with comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue close "${{ github.event.issue.number }}" \
+            --repo "${{ github.repository }}" \
+            --reason "not planned" \
+            --comment "Hello @${{ github.event.issue.user.login }}. This issue is marked as \`duplicate\` and closed. Please make sure you have searched to see if an issue already exists for the bug you encountered."
