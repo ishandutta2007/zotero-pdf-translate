@@ -1,4 +1,4 @@
-import { getPref, getString, transformPromptWithContext } from "../../utils";
+import { buildPromptParts, getPref, getString } from "../../utils";
 import { TranslateService } from "./base";
 import { hasSourceTextPlaceholder } from "./gptPrompt";
 
@@ -138,7 +138,7 @@ const gptTranslate = async function (
     langTo: string,
     sourceText: string,
   ) {
-    return transformPromptWithContext(
+    return buildPromptParts(
       `${prefix}.prompt`,
       langFrom,
       langTo,
@@ -260,22 +260,27 @@ const gptTranslate = async function (
   };
 
   // Build request body based on API type
+  const { system, user } = transformContent(
+    data.langfrom,
+    data.langto,
+    data.raw,
+  );
+  const messages = [
+    { role: "system", content: system },
+    { role: "user", content: user },
+  ];
+
   const requestBody = useResponsesApi
     ? {
         model: model,
-        input: transformContent(data.langfrom, data.langto, data.raw),
+        input: messages,
         temperature: temperature,
         stream: streamMode,
         ...getCustomParams(prefix),
       }
     : {
         model: model,
-        messages: [
-          {
-            role: "user",
-            content: transformContent(data.langfrom, data.langto, data.raw),
-          },
-        ],
+        messages: messages,
         temperature: temperature,
         stream: streamMode,
         ...getCustomParams(prefix),

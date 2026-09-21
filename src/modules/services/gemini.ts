@@ -1,4 +1,4 @@
-import { getPref, transformPromptWithContext } from "../../utils";
+import { buildPromptParts, getPref } from "../../utils";
 import { TranslateService } from "./base";
 import type { TranslateTask } from "../../utils/task";
 
@@ -10,7 +10,7 @@ const translate = <TranslateService["translate"]>async function (data) {
     langTo: string,
     sourceText: string,
   ) {
-    return transformPromptWithContext(
+    return buildPromptParts(
       "gemini.prompt",
       langFrom,
       langTo,
@@ -30,6 +30,12 @@ const translate = <TranslateService["translate"]>async function (data) {
 
   const refreshHandler = addon.api.getTemporaryRefreshHandler({ task: data });
 
+  const { system, user } = transformContent(
+    data.langfrom,
+    data.langto,
+    data.raw,
+  );
+
   const xhr = await Zotero.HTTP.request("POST", getGenContentAPI(data), {
     headers: {
       "Content-Type": "application/json",
@@ -37,13 +43,21 @@ const translate = <TranslateService["translate"]>async function (data) {
     body: JSON.stringify({
       contents: [
         {
+          role: "user",
           parts: [
             {
-              text: transformContent(data.langfrom, data.langto, data.raw),
+              text: user,
             },
           ],
         },
       ],
+      system_instruction: {
+        parts: [
+          {
+            text: system,
+          },
+        ],
+      },
     }),
     responseType: "text",
     requestObserver: (xmlhttp: XMLHttpRequest) => {

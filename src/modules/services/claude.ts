@@ -1,4 +1,4 @@
-import { getPref, getString, transformPromptWithContext } from "../../utils";
+import { buildPromptParts, getPref, getString } from "../../utils";
 import { TranslateService } from "./base";
 import type { TranslateTask } from "../../utils/task";
 
@@ -8,13 +8,7 @@ function transformContent(
   sourceText: string,
   data: Required<TranslateTask>,
 ) {
-  return transformPromptWithContext(
-    "claude.prompt",
-    langFrom,
-    langTo,
-    sourceText,
-    data,
-  );
+  return buildPromptParts("claude.prompt", langFrom, langTo, sourceText, data);
 }
 
 // Removed duplicate implementation in favor of the main claude function
@@ -28,13 +22,21 @@ const translate = <TranslateService["translate"]>async function (data) {
 
   const refreshHandler = addon.api.getTemporaryRefreshHandler({ task: data });
 
+  const { system, user } = transformContent(
+    data.langfrom,
+    data.langto,
+    data.raw,
+    data,
+  );
+
   // Pass maxTokens to the request body
   const requestBody = {
     model: model,
+    system: system,
     messages: [
       {
         role: "user",
-        content: transformContent(data.langfrom, data.langto, data.raw, data),
+        content: user,
       },
     ],
     temperature: temperature,
